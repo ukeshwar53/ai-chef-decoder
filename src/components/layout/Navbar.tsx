@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChefHat, Menu, X, User, LogOut, Heart, Calendar, History } from "lucide-react";
+import { Menu, X, User, LogOut, Heart, Calendar, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -36,11 +36,14 @@ export const Navbar = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-secondary/95 backdrop-blur-md border-b border-border">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 md:h-20">
+
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl gradient-warm flex items-center justify-center shadow-soft group-hover:shadow-card transition-all duration-300 group-hover:scale-105">
-              <ChefHat className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <img
+              src="/yummiai-logo.png"
+              alt="YummiAI Logo"
+              className="w-12 h-12 object-contain rounded-xl shadow-soft transition-all duration-300 group-hover:shadow-card group-hover:scale-105"
+            />
             <span className="font-heading text-xl font-bold text-secondary-foreground">
               Yummi<span className="text-primary">AI</span>
             </span>
@@ -71,10 +74,15 @@ export const Navbar = () => {
                 {user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="gap-2 border-primary/50 text-secondary-foreground hover:bg-primary/20">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 border-primary/50 text-secondary-foreground hover:bg-primary/20"
+                      >
                         <User className="w-4 h-4" />
                         <span className="max-w-24 truncate">
-                          {user.user_metadata?.display_name || user.email?.split("@")[0]}
+                          {user.user_metadata?.display_name ||
+                            user.email?.split("@")[0]}
                         </span>
                       </Button>
                     </DropdownMenuTrigger>
@@ -139,6 +147,7 @@ export const Navbar = () => {
                   {link.label}
                 </Link>
               ))}
+
               {user && (
                 <>
                   <Link
@@ -167,6 +176,7 @@ export const Navbar = () => {
                   </Link>
                 </>
               )}
+
               <div className="pt-2">
                 {user ? (
                   <Button
