@@ -1,0 +1,13 @@
+project_id = "higisuxygyblgirarshj"
+
+[functions.generate-recipe]
+verify_jwt = false
+
+[functions.scan-food]
+verify_jwt = false
+
+[functions.calculate-nutrition]
+verify_jwt = false
+
+[functions.ingredient-chemistry]
+verify_jwt = false
