@@ -1,124 +1,125 @@
-import React, {
-  useRef,
-  useImperativeHandle,
-  forwardRef,
-  useState,
-  useEffect,
-} from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-
-export interface CameraCaptureHandle {
-  startCamera: () => Promise<void>;
-  stopCamera: () => void;
-  flipCamera: () => Promise<void>;
-  capture: () => void;
-}
 
 interface CameraCaptureProps {
   onCapture: (imageBase64: string) => void;
   isProcessing?: boolean;
 }
 
-const CameraCapture = forwardRef<CameraCaptureHandle, CameraCaptureProps>(
-  ({ onCapture, isProcessing }, ref) => {
-    const videoRef = useRef<HTMLVideoElement | null>(null);
-    const streamRef = useRef<MediaStream | null>(null);
-    const [status, setStatus] = useState("Camera idle");
-    const facingMode = useRef<"user" | "environment">("environment");
+const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing }) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [status, setStatus] = useState("Camera idle");
 
-    const startCamera = async () => {
-      try {
-        setStatus("Requesting permission…");
+  // Mount camera automatically when component renders
+  useEffect(() => {
+    startCamera();
 
-        if (!navigator.mediaDevices?.getUserMedia) {
-          toast.error("Camera not supported");
-          return;
-        }
+    // Cleanup camera when leaving camera tab or unmounting
+    return () => {
+      stopCamera();
+    };
+  }, []);
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facingMode.current },
-        });
-
-        streamRef.current = stream;
-
+  const waitForVideoMount = async () => {
+    return new Promise<void>((resolve) => {
+      let tries = 0;
+      const interval = setInterval(() => {
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
+          clearInterval(interval);
+          resolve();
         }
-
-        setStatus("Camera active");
-      } catch (err: any) {
-        console.error("Camera error:", err);
-
-        if (err.name === "NotReadableError") {
-          toast.error("Camera already used by another application");
-        } else {
-          toast.error("Failed to start camera");
+        if (tries++ > 10) {
+          clearInterval(interval);
+          toast.error("Video element failed to mount.");
         }
-        setStatus("Camera error");
+      }, 80);
+    });
+  };
+
+  const startCamera = async () => {
+    setStatus("Requesting camera permission...");
+    await waitForVideoMount();
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        toast.error("Camera not supported on this device.");
+        return;
       }
-    };
 
-    const stopCamera = () => {
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+      streamRef.current = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
 
-      if (videoRef.current) videoRef.current.srcObject = null;
+      if (!videoRef.current) {
+        toast.error("Video element not mounted yet.");
+        return;
+      }
 
-      setStatus("Camera stopped");
-    };
+      videoRef.current.srcObject = streamRef.current;
+      await videoRef.current.play();
 
-    const flipCamera = async () => {
-      facingMode.current =
-        facingMode.current === "user" ? "environment" : "user";
+      setStatus("Camera ready");
+    } catch (err: any) {
+      console.error("Camera error:", err);
 
-      await startCamera();
-    };
+      if (err.name === "NotAllowedError") toast.error("Permission denied");
+      else if (err.name === "NotReadableError") toast.error("Camera in use by another app");
+      else toast.error("Failed to start camera");
 
-    const capture = () => {
-      if (!videoRef.current) return;
+      setStatus("Camera error");
+    }
+  };
 
-      const canvas = document.createElement("canvas");
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setStatus("Camera stopped");
+  };
 
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+  const captureImage = () => {
+    if (!videoRef.current) {
+      toast.error("Camera not ready");
+      return;
+    }
 
-      ctx.drawImage(videoRef.current, 0, 0);
+    const canvas = document.createElement("canvas");
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
 
-      const base64 = canvas.toDataURL("image/jpeg", 0.9);
-      onCapture(base64);
-      toast.success("Captured!");
-    };
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    useImperativeHandle(ref, () => ({
-      startCamera,
-      stopCamera,
-      flipCamera,
-      capture,
-    }));
+    ctx.drawImage(videoRef.current, 0, 0);
+    const base64 = canvas.toDataURL("image/jpeg");
 
-    useEffect(() => {
-      return () => stopCamera();
-    }, []);
+    onCapture(base64);
+    toast.success("Image captured!");
+  };
 
-    return (
-      <div className="w-full">
-        <p className="text-sm text-muted-foreground mb-2">{status}</p>
+  return (
+    <div className="w-full">
+      <p className="text-sm text-muted-foreground mb-2">{status}</p>
 
-        <div className="border rounded-xl p-3 bg-black min-h-[280px] flex items-center justify-center">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full rounded-xl bg-black"
-          />
-        </div>
+      <div className="border rounded-xl p-4 flex flex-col items-center min-h-[300px]">
+        <video
+          ref={videoRef}
+          className="w-full rounded-xl bg-black"
+          autoPlay
+          playsInline
+          muted
+        />
       </div>
-    );
-  }
-);
+
+      <button
+        className="mt-4 w-full bg-primary text-white py-2 rounded-lg disabled:opacity-50"
+        onClick={captureImage}
+        disabled={isProcessing}
+      >
+        {isProcessing ? "Processing..." : "Capture Image"}
+      </button>
+    </div>
+  );
+};
 
 export default CameraCapture;
