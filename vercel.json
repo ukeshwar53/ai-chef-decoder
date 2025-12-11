@@ -1,12 +1,12 @@
-﻿Set-Content vercel.json @'
-{
+﻿$json = '{
   "version": 2,
   "builds": [
     { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
   ],
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
-}
-'@ -Encoding utf8
-
+}'
+$enc = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText('vercel.json', $json, $enc)
