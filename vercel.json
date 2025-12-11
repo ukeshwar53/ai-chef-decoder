@@ -1,9 +1,0 @@
-﻿
-$json = '{ "version": 2, "builds": [{ "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }], "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }'
-$enc = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText('vercel.json', $json, $enc)
-
-# show content and first 40 chars
-Get-Content vercel.json -Raw
-# show the first 4 bytes (should NOT be EF BB BF)
-Get-Content vercel.json -Encoding Byte -TotalCount 4
