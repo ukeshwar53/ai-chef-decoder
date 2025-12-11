@@ -1,21 +1,25 @@
 import { Link } from "react-router-dom";
-import { ChefHat, Github, Twitter, Linkedin } from "lucide-react";
+import { Github, Twitter, Linkedin } from "lucide-react";
 
 export const Footer = () => {
   return (
     <footer className="bg-secondary border-t border-border">
       <div className="container mx-auto px-4 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12">
+          
           {/* Brand */}
           <div className="md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl gradient-warm flex items-center justify-center">
-                <ChefHat className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <img
+                src="/yummiai-logo.png"
+                alt="YummiAI Logo"
+                className="w-12 h-12 object-contain rounded-xl shadow-soft transition-all duration-300"
+              />
               <span className="font-heading text-xl font-bold text-secondary-foreground">
                 Yummi<span className="text-primary">AI</span>
               </span>
             </Link>
+
             <p className="text-secondary-foreground/70 text-sm leading-relaxed">
               Transform ingredients into culinary masterpieces with AI-powered recipe generation and food intelligence.
             </p>
