@@ -8,12 +8,12 @@ interface CameraCaptureProps {
 }
 
 /**
- * CameraCapture
+ * CameraCapture - exports both named and default
  * - Manual Start / Stop camera controls
  * - Ensures the video element is mounted before starting the stream (fixes "video not mounted" errors inside tabs)
  * - Capture, Retake, Use Photo flows
  */
-const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing = false }) => {
+export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing = false }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -25,7 +25,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing =
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const startingRef = useRef(false);
 
-  // Give the DOM a short moment to mount the video element (helps when used inside tabbed UIs)
+  // Give the DOM a short moment to mount the video element (helps with tabbed UIs)
   useEffect(() => {
     const id = setTimeout(() => setMountReady(true), 120);
     return () => clearTimeout(id);
@@ -45,7 +45,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing =
     setError(null);
     setCapturedImage(null);
 
-    // Ensure video element is mounted before trying to attach stream
+    // ensure video element is mounted
     if (!mountReady || !videoRef.current) {
       setError("Video element not mounted yet. Try again.");
       startingRef.current = false;
@@ -74,7 +74,6 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing =
         setIsStreaming(true);
         setError(null);
       } catch (playErr) {
-        // Sometimes play() is blocked by autoplay policies — still attach stream so capture can work after a gesture
         console.warn("video.play() blocked:", playErr);
         video.srcObject = stream;
         setIsStreaming(true);
@@ -120,7 +119,6 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing =
   const retake = useCallback(() => {
     setCapturedImage(null);
     setError(null);
-    // small delay for safety, then restart
     setTimeout(() => startCamera(), 150);
   }, [startCamera]);
 
@@ -130,15 +128,12 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing =
 
   const flipCamera = useCallback(() => {
     setFacingMode((p) => (p === "user" ? "environment" : "user"));
-    // restart camera if currently streaming so facingMode applies
     if (isStreaming) {
-      // stop first, then restart to apply facing mode
       stopStream();
       setTimeout(() => startCamera(), 150);
     }
   }, [isStreaming, startCamera, stopStream]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopStream();
@@ -166,15 +161,14 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing =
         </div>
       )}
 
-      {/* Initial placeholder with Start Camera */}
+      {/* Placeholder / Start */}
       {!isStreaming && !capturedImage && (
         <div className="flex flex-col items-center justify-center p-8 bg-accent/50 rounded-2xl border-2 border-dashed border-border min-h-[260px]">
           <Camera className="w-14 h-14 text-muted-foreground mb-4" />
           <p className="text-muted-foreground text-center mb-4">Point your camera at your ingredients for detection</p>
           <div className="flex gap-3">
             <Button variant="hero" onClick={() => { setError(null); startCamera(); }}>
-              <Camera className="w-4 h-4 mr-2" />
-              Start Camera
+              <Camera className="w-4 h-4 mr-2" /> Start Camera
             </Button>
             <Button variant="outline" onClick={() => setError("If you denied camera earlier, enable it from site settings.")}>
               Help
@@ -183,7 +177,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing =
         </div>
       )}
 
-      {/* Live camera preview */}
+      {/* Live preview */}
       {isStreaming && (
         <div className="relative">
           <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-2xl bg-black aspect-video object-cover" />
@@ -193,13 +187,11 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing =
             </Button>
 
             <Button variant="hero" onClick={captureFrame} className="px-6">
-              <Camera className="w-4 h-4 mr-2" />
-              Capture
+              <Camera className="w-4 h-4 mr-2" /> Capture
             </Button>
 
             <Button variant="outline" onClick={stopStream} className="bg-background/80 backdrop-blur-sm">
-              <CameraOff className="w-4 h-4 mr-2" />
-              Stop Camera
+              <CameraOff className="w-4 h-4 mr-2" /> Stop Camera
             </Button>
           </div>
 
@@ -211,26 +203,23 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing =
         </div>
       )}
 
-      {/* Captured preview and actions */}
+      {/* Captured preview */}
       {capturedImage && (
         <div className="relative">
           <img src={capturedImage} alt="Captured" className="w-full rounded-2xl aspect-video object-cover" />
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
             <Button variant="outline" onClick={retake} disabled={isProcessing} className="bg-background/80 backdrop-blur-sm">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Retake
+              <RefreshCw className="w-4 h-4 mr-2" /> Retake
             </Button>
 
             <Button variant="hero" onClick={confirmCapture} disabled={isProcessing}>
               {isProcessing ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Analyzing...
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing...
                 </>
               ) : (
                 <>
-                  <Check className="w-4 h-4 mr-2" />
-                  Use This Frame
+                  <Check className="w-4 h-4 mr-2" /> Use This Frame
                 </>
               )}
             </Button>

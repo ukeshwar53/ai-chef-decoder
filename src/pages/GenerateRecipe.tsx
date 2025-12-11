@@ -6,7 +6,7 @@ import { IngredientInput } from "@/components/shared/IngredientInput";
 import { RecipeCard } from "@/components/shared/RecipeCard";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { NutritionCard } from "@/components/shared/NutritionCard";
-import CameraCapture from "@/components/shared/CameraCapture";
+import { CameraCapture } from "@/components/shared/CameraCapture"; // named import works
 import { Sparkles, Leaf, Globe, Heart, Loader2, Camera as CameraIcon, Type, Beaker } from "lucide-react";
 import {
   Select,
