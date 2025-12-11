@@ -8,38 +8,27 @@ interface CameraCaptureProps {
 }
 
 /**
- * Camera capture component with manual Start/Stop controls.
- * - Does client-side detection for camera support to avoid SSR false-negatives.
- * - Does not auto-start camera; user must press "Start Camera".
+ * CameraCapture
+ * - Manual Start / Stop camera controls
+ * - Ensures the video element is mounted before starting the stream (fixes "video not mounted" errors inside tabs)
+ * - Capture, Retake, Use Photo flows
  */
-export const CameraCapture: React.FC<CameraCaptureProps> = ({
-  onCapture,
-  isProcessing = false,
-}) => {
+const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing = false }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const [hasCamera, setHasCamera] = useState<boolean | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [mountReady, setMountReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const startingRef = useRef(false);
 
-  // client-side detection for camera support to avoid SSR/hydration issues
+  // Give the DOM a short moment to mount the video element (helps when used inside tabbed UIs)
   useEffect(() => {
-    const check = () => {
-      const support =
-        typeof navigator !== "undefined" &&
-        !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-      setHasCamera(support);
-    };
-
-    check();
-    // also re-check when tab/window focused (some environments change permissions)
-    window.addEventListener("focus", check);
-    return () => window.removeEventListener("focus", check);
+    const id = setTimeout(() => setMountReady(true), 120);
+    return () => clearTimeout(id);
   }, []);
 
   const stopStream = useCallback(() => {
@@ -56,14 +45,14 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     setError(null);
     setCapturedImage(null);
 
-    if (!hasCamera) {
-      setError("Camera not available in this browser or context.");
+    // Ensure video element is mounted before trying to attach stream
+    if (!mountReady || !videoRef.current) {
+      setError("Video element not mounted yet. Try again.");
       startingRef.current = false;
       return;
     }
 
     try {
-      // stop previous streams (if any)
       stopStream();
 
       const constraints: MediaStreamConstraints = {
@@ -74,15 +63,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
 
-      const video = videoRef.current;
-      if (!video) {
-        // Video not mounted yet; stop stream to avoid background-only stream
-        stopStream();
-        setError("Video element not mounted yet. Try again.");
-        startingRef.current = false;
-        return;
-      }
-
+      const video = videoRef.current!;
       video.muted = true;
       video.playsInline = true;
       video.autoplay = true;
@@ -93,11 +74,11 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         setIsStreaming(true);
         setError(null);
       } catch (playErr) {
-        // autoplay may be blocked; attach stream to video so capture works after user gesture
+        // Sometimes play() is blocked by autoplay policies — still attach stream so capture can work after a gesture
         console.warn("video.play() blocked:", playErr);
         video.srcObject = stream;
         setIsStreaming(true);
-        setError("Playback blocked by browser. Tap preview or press Start Camera again.");
+        setError("Playback blocked by browser. Tap the preview or try Start Camera again.");
       }
     } catch (err: any) {
       console.error("getUserMedia error:", err);
@@ -113,7 +94,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     } finally {
       startingRef.current = false;
     }
-  }, [facingMode, hasCamera, stopStream]);
+  }, [mountReady, facingMode, stopStream]);
 
   const captureFrame = useCallback(() => {
     const video = videoRef.current;
@@ -125,7 +106,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 
     const w = video.videoWidth || 1280;
     const h = video.videoHeight || 720;
-
     canvas.width = w;
     canvas.height = h;
     ctx.drawImage(video, 0, 0, w, h);
@@ -133,15 +113,15 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     const data = canvas.toDataURL("image/jpeg", 0.85);
     setCapturedImage(data);
 
-    // stop streaming to save resources
+    // stop stream to save battery/resources
     stopStream();
   }, [stopStream]);
 
   const retake = useCallback(() => {
     setCapturedImage(null);
     setError(null);
-    // restart camera
-    startCamera();
+    // small delay for safety, then restart
+    setTimeout(() => startCamera(), 150);
   }, [startCamera]);
 
   const confirmCapture = useCallback(() => {
@@ -150,44 +130,28 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 
   const flipCamera = useCallback(() => {
     setFacingMode((p) => (p === "user" ? "environment" : "user"));
-    // restart camera if currently streaming
+    // restart camera if currently streaming so facingMode applies
     if (isStreaming) {
-      // small delay to apply facing mode change
+      // stop first, then restart to apply facing mode
+      stopStream();
       setTimeout(() => startCamera(), 150);
     }
-  }, [isStreaming, startCamera]);
+  }, [isStreaming, startCamera, stopStream]);
 
-  // restart when facingMode changes if streaming (handled in flipCamera) — effect included for safety
-  useEffect(() => {
-    // no-op here; flipCamera handles restart explicitly
-  }, [facingMode]);
-
-  // cleanup on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopStream();
-      setIsStreaming(false);
     };
   }, [stopStream]);
 
-  // UI states
-  if (hasCamera === null) {
-    return (
-      <div className="p-6 bg-card rounded-2xl border border-border text-center">
-        <div className="animate-pulse">Checking camera support...</div>
-      </div>
-    );
-  }
+  const hasMediaSupport = typeof navigator !== "undefined" && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
-  if (!hasCamera) {
+  if (!hasMediaSupport) {
     return (
       <div className="p-6 bg-card rounded-2xl border border-border text-center">
         <CameraOff className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-        <p className="text-muted-foreground">Camera is not supported in this browser/context.</p>
-        <p className="text-xs text-muted-foreground/80 mt-2">
-          Common causes: running on insecure HTTP (use HTTPS or localhost), being inside an iframe without
-          <code> allow="camera"</code>, or strict browser privacy settings.
-        </p>
+        <p className="text-muted-foreground">Camera is not supported on this device or browser.</p>
       </div>
     );
   }
@@ -197,50 +161,32 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
       <canvas ref={canvasRef} className="hidden" />
 
       {error && (
-        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm">
+        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
           {error}
         </div>
       )}
 
-      {/* Start Camera placeholder */}
+      {/* Initial placeholder with Start Camera */}
       {!isStreaming && !capturedImage && (
-        <div className="flex flex-col items-center justify-center p-8 bg-accent/50 rounded-2xl border-2 border-dashed border-border min-h-[300px]">
-          <Camera className="w-16 h-16 text-muted-foreground mb-4" />
+        <div className="flex flex-col items-center justify-center p-8 bg-accent/50 rounded-2xl border-2 border-dashed border-border min-h-[260px]">
+          <Camera className="w-14 h-14 text-muted-foreground mb-4" />
           <p className="text-muted-foreground text-center mb-4">Point your camera at your ingredients for detection</p>
           <div className="flex gap-3">
-            <Button
-              variant="hero"
-              onClick={() => {
-                setError(null);
-                startCamera();
-              }}
-            >
+            <Button variant="hero" onClick={() => { setError(null); startCamera(); }}>
               <Camera className="w-4 h-4 mr-2" />
               Start Camera
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                // give a quick hint or open permission settings flow (can't programmatically open)
-                setError("If you denied permission earlier, re-enable camera in browser settings and reload.");
-              }}
-            >
+            <Button variant="outline" onClick={() => setError("If you denied camera earlier, enable it from site settings.")}>
               Help
             </Button>
           </div>
         </div>
       )}
 
-      {/* Live stream */}
+      {/* Live camera preview */}
       {isStreaming && (
-        <div className="relative z-50">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full rounded-2xl bg-black aspect-video object-cover"
-          />
+        <div className="relative">
+          <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-2xl bg-black aspect-video object-cover" />
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
             <Button variant="outline" size="icon" onClick={flipCamera} className="bg-background/80 backdrop-blur-sm">
               <RefreshCw className="w-4 h-4" />
@@ -265,7 +211,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         </div>
       )}
 
-      {/* Captured preview */}
+      {/* Captured preview and actions */}
       {capturedImage && (
         <div className="relative">
           <img src={capturedImage} alt="Captured" className="w-full rounded-2xl aspect-video object-cover" />

@@ -56,7 +56,8 @@ const GenerateRecipe: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const initialIngredients = searchParams.get("ingredients")?.split(",").filter(Boolean) || [];
+  // Pre-fill ingredients if passed via URL
+  const initialIngredients = (searchParams.get("ingredients")?.split(",").filter(Boolean)) || [];
 
   const [ingredients, setIngredients] = useState<string[]>(initialIngredients);
   const [cuisine, setCuisine] = useState("Italian");
@@ -95,6 +96,7 @@ const GenerateRecipe: React.FC = () => {
     try {
       const result = await scanFood(imageBase64);
 
+      // Add detected ingredients
       const newIngredients = result.ingredients
         .filter((ing) => ing.confidence >= 60)
         .map((ing) => ing.name.toLowerCase());
@@ -107,7 +109,7 @@ const GenerateRecipe: React.FC = () => {
       }
 
       toast.success(`Detected ${newIngredients.length} ingredients from image!`);
-      setInputMode("text");
+      setInputMode("text"); // switch back to text to show results
     } catch (error) {
       console.error("Error scanning image:", error);
       toast.error(error instanceof Error ? error.message : "Failed to analyze image");
@@ -174,8 +176,8 @@ const GenerateRecipe: React.FC = () => {
 
       if (error) throw error;
       toast.success("Recipe saved to your collection!");
-    } catch (err) {
-      console.error("Error saving recipe:", err);
+    } catch (error) {
+      console.error("Error saving recipe:", error);
       toast.error("Failed to save recipe");
     } finally {
       setIsSaving(false);
@@ -235,7 +237,7 @@ const GenerateRecipe: React.FC = () => {
                 <TabsContent value="camera" className="mt-0">
                   <h2 className="font-heading text-xl font-semibold text-foreground mb-6">Capture Ingredients</h2>
 
-                  {/* Mount CameraCapture only when camera tab is active to avoid hidden-video problems */}
+                  {/* Mount CameraCapture only when camera tab is active to avoid hidden-video issues */}
                   {inputMode === "camera" && (
                     <CameraCapture onCapture={handleCameraCapture} isProcessing={isScanning} />
                   )}
