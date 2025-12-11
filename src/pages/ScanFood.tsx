@@ -28,7 +28,6 @@ const ScanFood: React.FC = () => {
 
   const [cameraStatus, setCameraStatus] = useState("Camera idle");
 
-  // Stop camera when switching away from camera tab
   useEffect(() => {
     if (inputMode !== "camera" && cameraRef.current) {
       cameraRef.current.stopCamera();
@@ -116,7 +115,7 @@ const ScanFood: React.FC = () => {
       await cameraRef.current.startCamera();
       setCameraStatus("Camera active");
       setInputMode("camera");
-    } catch (err) {
+    } catch (err: any) {
       console.error("startCamera error:", err);
 
       if (err?.name === "NotReadableError") {
@@ -150,19 +149,29 @@ const ScanFood: React.FC = () => {
 
   return (
     <Layout>
-      <section className="py-12 md:py-20">
-        <div className="container mx-auto px-4">
-          {/* Header */}
+      {/* ✨ Blurred Background (light) + Dark Overlay */}
+      <section className="relative py-12 md:py-20 overflow-hidden">
+        {/* Background image: lightly blurred */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat blur-sm"
+          style={{ backgroundImage: "url('/scanfood.png')" }}
+        />
+        {/* Mild dark overlay to improve foreground contrast */}
+        <div className="absolute inset-0 bg-black/30" />
+
+        <div className="relative container mx-auto px-4">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <div className="inline-flex items-center gap-2 bg-accent rounded-full px-4 py-2 mb-4">
-              
-              <span className="text-sm font-medium text-foreground">AI Food Scanner</span>
+            <div className="inline-flex items-center gap-2 bg-primary/40 rounded-full px-4 py-2 mb-4">
+              <span className="text-sm font-medium text-white">AI Food Scanner</span>
             </div>
-            <h1 className="font-heading text-3xl md:text-5xl font-bold text-foreground mb-4">
+
+            <h1 className="font-heading text-3xl md:text-5xl font-bold text-black mb-4">
               Scan Any Dish
             </h1>
-            <p className="text-muted-foreground">
-              Upload a photo or use your camera to scan any food. Our AI will identify ingredients and generate the perfect recipe.
+
+            <p className="text-gray-200">
+              Upload a photo or use your camera to scan any food. Our AI will identify ingredients
+              and generate the perfect recipe.
             </p>
           </div>
 
@@ -183,7 +192,6 @@ const ScanFood: React.FC = () => {
                     </TabsTrigger>
                   </TabsList>
 
-                  {/* Upload Tab */}
                   <TabsContent value="upload" className="mt-0">
                     <h2 className="font-heading text-xl font-semibold text-foreground mb-6">
                       Upload Food Image
@@ -196,17 +204,13 @@ const ScanFood: React.FC = () => {
                     />
                   </TabsContent>
 
-                  {/* Camera Tab */}
                   <TabsContent value="camera" className="mt-0">
                     <h2 className="font-heading text-xl font-semibold text-foreground mb-6">
                       Capture with Camera
                     </h2>
 
-                    <div className="mb-4 text-sm text-muted-foreground">
-                      {cameraStatus}
-                    </div>
+                    <div className="mb-4 text-sm text-muted-foreground">{cameraStatus}</div>
 
-                    {/* Camera Component */}
                     <CameraCapture
                       ref={cameraRef}
                       onCapture={handleCameraCapture}
@@ -229,13 +233,15 @@ const ScanFood: React.FC = () => {
                 </Tabs>
               </div>
 
-              {/* Ingredient Results */}
+              {/* Detected Ingredients */}
               {detectedIngredients.length > 0 && !isAnalyzing && (
                 <div className="bg-card rounded-2xl border border-border shadow-soft p-6 md:p-8">
                   {dishName && (
                     <div className="mb-4 pb-4 border-b border-border">
                       <span className="text-sm text-muted-foreground">Detected Dish:</span>
-                      <h3 className="font-heading text-lg font-semibold text-foreground">{dishName}</h3>
+                      <h3 className="font-heading text-lg font-semibold text-foreground">
+                        {dishName}
+                      </h3>
                     </div>
                   )}
 
@@ -253,9 +259,7 @@ const ScanFood: React.FC = () => {
                           <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
                             <Check className="w-4 h-4 text-primary" />
                           </div>
-                          <span className="font-medium text-foreground">
-                            {ingredient.name}
-                          </span>
+                          <span className="font-medium text-foreground">{ingredient.name}</span>
                         </div>
 
                         <span className="text-sm text-muted-foreground">
@@ -282,9 +286,7 @@ const ScanFood: React.FC = () => {
             {/* Output Panel */}
             <div className="space-y-6">
               {(isAnalyzing || isGenerating) && (
-                <LoadingSpinner
-                  text={isAnalyzing ? "Analyzing your image..." : "Generating recipe..."}
-                />
+                <LoadingSpinner text={isAnalyzing ? "Analyzing your image..." : "Generating recipe..."} />
               )}
 
               {recipe && !isGenerating && <RecipeCard {...recipe} />}
@@ -295,12 +297,13 @@ const ScanFood: React.FC = () => {
                     <div className="w-16 h-16 rounded-2xl bg-accent mx-auto mb-4 flex items-center justify-center">
                       <Image className="w-8 h-8 text-muted-foreground" />
                     </div>
-                    <p className="text-muted-foreground">Upload an image or use your camera to start scanning</p>
+                    <p className="text-muted-foreground">
+                      Upload an image or use your camera to start scanning
+                    </p>
                   </div>
                 </div>
               )}
             </div>
-
           </div>
         </div>
       </section>
