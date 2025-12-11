@@ -37,37 +37,52 @@ const values = [
 const About = () => {
   return (
     <Layout>
-      {/* Hero */}
-      <section className="py-20 md:py-32 gradient-hero relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-1/2 -right-1/4 w-[800px] h-[800px] rounded-full bg-primary/5 blur-3xl" />
-        </div>
-        
+
+      {/* HERO SECTION WITH BACKGROUND IMAGE */}
+      <section
+        className="py-20 md:py-32 gradient-hero relative overflow-hidden"
+        style={{
+          backgroundImage:
+            "url('https://www.foodinspiration.com/img/cache/Dall-EinterpretationofafoodprofessionalusingAI.png-1600x900.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div className="absolute inset-0 bg-black/40" />
+
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 bg-accent rounded-full px-4 py-2 mb-6 animate-fade-up">
-              <ChefHat className="w-4 h-4 text-primary" />
+              
               <span className="text-sm font-medium text-foreground">
                 About CulinaryAI
               </span>
             </div>
-            
-            <h1 className="font-heading text-4xl md:text-6xl font-bold text-foreground mb-6 animate-fade-up" style={{ animationDelay: "0.1s" }}>
-              Reimagining the Way
-              <span className="text-gradient block mt-2">We Cook</span>
+
+            <h1
+              className="font-heading text-4xl md:text-6xl font-bold text-foreground mb-6 animate-fade-up"
+              style={{ animationDelay: "0.1s" }}
+            >
+              <span className="text-yellow-500">Reimagining the Way</span>
+              <span className="text-yellow-500 block mt-2">We Cook</span>
             </h1>
-            
-            <p className="text-lg md:text-xl text-muted-foreground animate-fade-up" style={{ animationDelay: "0.2s" }}>
+
+            <p
+              className="text-lg md:text-xl text-white/80 animate-fade-up"
+              style={{ animationDelay: "0.2s" }}
+            >
               CulinaryAI combines artificial intelligence with culinary expertise to transform how you discover, create, and enjoy food.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Mission */}
+      {/* OUR MISSION SECTION WITH IMAGE */}
       <section className="py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
+
+            {/* Mission Text */}
             <div>
               <h2 className="font-heading text-3xl md:text-4xl font-bold text-foreground mb-6">
                 Our Mission
@@ -82,22 +97,25 @@ const About = () => {
                 Whether you're a busy parent looking for quick meals, a fitness enthusiast tracking macros, or a curious cook exploring new cuisines — CulinaryAI is here to help.
               </p>
             </div>
-            
+
+            {/* Mission Image */}
             <div className="relative">
-              <div className="aspect-square rounded-3xl gradient-warm p-8 shadow-elevated">
-                <div className="w-full h-full rounded-2xl bg-card/20 backdrop-blur-sm flex items-center justify-center">
-                  <Sparkles className="w-32 h-32 text-primary-foreground/80" />
-                </div>
+              <div className="aspect-square rounded-3xl overflow-hidden shadow-elevated">
+                <img
+                  src="public/robot.jpeg"
+                  alt="Mission"
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <div className="absolute -bottom-6 -left-6 w-32 h-32 rounded-2xl gradient-sage shadow-card flex items-center justify-center">
-                <ChefHat className="w-12 h-12 text-secondary-foreground" />
-              </div>
+
+              
             </div>
+
           </div>
         </div>
       </section>
 
-      {/* Values */}
+      {/* VALUES */}
       <section className="py-20 md:py-32 bg-card">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-2xl mx-auto mb-16">
@@ -131,7 +149,7 @@ const About = () => {
         </div>
       </section>
 
-      {/* Technology */}
+      {/* TECHNOLOGY */}
       <section className="py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
@@ -193,6 +211,7 @@ const About = () => {
           </div>
         </div>
       </section>
+
     </Layout>
   );
 };

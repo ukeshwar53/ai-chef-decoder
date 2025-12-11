@@ -155,7 +155,7 @@ const ScanFood: React.FC = () => {
           {/* Header */}
           <div className="text-center max-w-2xl mx-auto mb-12">
             <div className="inline-flex items-center gap-2 bg-accent rounded-full px-4 py-2 mb-4">
-              <Camera className="w-4 h-4 text-primary" />
+              
               <span className="text-sm font-medium text-foreground">AI Food Scanner</span>
             </div>
             <h1 className="font-heading text-3xl md:text-5xl font-bold text-foreground mb-4">

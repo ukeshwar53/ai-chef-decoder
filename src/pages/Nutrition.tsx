@@ -90,7 +90,7 @@ const Nutrition = () => {
           {/* Header */}
           <div className="text-center max-w-2xl mx-auto mb-12">
             <div className="inline-flex items-center gap-2 bg-accent rounded-full px-4 py-2 mb-4">
-              <PieChart className="w-4 h-4 text-primary" />
+              
               <span className="text-sm font-medium text-foreground">
                 AI Nutrition Calculator
               </span>
