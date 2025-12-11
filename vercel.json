@@ -1,1 +1,11 @@
-﻿{ "routes": [ { "src": "/(.*)", "dest": "/index.html" } ] }
+﻿Set-Content vercel.json @'
+{
+  "version": 2,
+  "builds": [
+    { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+'@ -Encoding utf8
