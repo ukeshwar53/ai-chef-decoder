@@ -192,7 +192,7 @@ const GenerateRecipe: React.FC = () => {
       <section
         className="relative py-12 md:py-20 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: "url('public/recipe-bg.png')",
+          backgroundImage: "url('/recipe-bg.png')",
         }}
       >
 
