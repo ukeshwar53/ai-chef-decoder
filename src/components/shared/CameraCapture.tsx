@@ -1,225 +1,146 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, CameraOff, RefreshCw, Check, Loader2 } from "lucide-react";
 
-interface CameraCaptureProps {
-  onCapture: (imageBase64: string) => void;
+interface Props {
+  onCapture: (img: string) => void;
   isProcessing?: boolean;
 }
 
-/**
- * CameraCapture - exports both named and default
- * - Manual Start / Stop camera controls
- * - Ensures the video element is mounted before starting the stream (fixes "video not mounted" errors inside tabs)
- * - Capture, Retake, Use Photo flows
- */
-export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProcessing = false }) => {
+export default function CameraCapture({ onCapture, isProcessing = false }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [mountReady, setMountReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
-  const startingRef = useRef(false);
+  const [ready, setReady] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [captured, setCaptured] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  // Give the DOM a short moment to mount the video element (helps with tabbed UIs)
+  // 1️⃣ Wait for DOM mount  
   useEffect(() => {
-    const id = setTimeout(() => setMountReady(true), 120);
-    return () => clearTimeout(id);
+    const t = setTimeout(() => setReady(true), 500);
+    return () => clearTimeout(t);
   }, []);
 
-  const stopStream = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    setIsStreaming(false);
-  }, []);
-
-  const startCamera = useCallback(async () => {
-    if (startingRef.current) return;
-    startingRef.current = true;
-    setError(null);
-    setCapturedImage(null);
-
-    // ensure video element is mounted
-    if (!mountReady || !videoRef.current) {
-      setError("Video element not mounted yet. Try again.");
-      startingRef.current = false;
-      return;
-    }
+  // 2️⃣ Start camera  
+  const startCamera = async () => {
+    setError("");
 
     try {
-      stopStream();
-
-      const constraints: MediaStreamConstraints = {
-        video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
         audio: false,
-      };
+      });
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = stream;
+      setStream(s);
 
-      const video = videoRef.current!;
-      video.muted = true;
-      video.playsInline = true;
-      video.autoplay = true;
-
-      try {
-        video.srcObject = stream;
-        await video.play();
-        setIsStreaming(true);
-        setError(null);
-      } catch (playErr) {
-        console.warn("video.play() blocked:", playErr);
-        video.srcObject = stream;
-        setIsStreaming(true);
-        setError("Playback blocked by browser. Tap the preview or try Start Camera again.");
+      if (videoRef.current) {
+        videoRef.current.srcObject = s;
+        await videoRef.current.play();
       }
-    } catch (err: any) {
-      console.error("getUserMedia error:", err);
-      if (err && err.name === "NotAllowedError") {
-        setError("Camera permission denied. Allow camera in browser settings.");
-      } else if (err && err.name === "NotFoundError") {
-        setError("No camera found on this device.");
-      } else {
-        setError("Failed to access camera. Try reloading or checking permissions.");
-      }
-      stopStream();
-      setIsStreaming(false);
-    } finally {
-      startingRef.current = false;
+    } catch (err) {
+      console.log(err);
+      setError("Camera access denied or not available.");
     }
-  }, [mountReady, facingMode, stopStream]);
+  };
 
-  const captureFrame = useCallback(() => {
+  // 3️⃣ Stop camera  
+  const stopCamera = () => {
+    stream?.getTracks().forEach((t) => t.stop());
+    setStream(null);
+  };
+
+  // 4️⃣ Capture frame  
+  const takePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const w = video.videoWidth || 1280;
-    const h = video.videoHeight || 720;
-    canvas.width = w;
-    canvas.height = h;
-    ctx.drawImage(video, 0, 0, w, h);
+    ctx.drawImage(video, 0, 0);
 
-    const data = canvas.toDataURL("image/jpeg", 0.85);
-    setCapturedImage(data);
+    const img = canvas.toDataURL("image/jpeg", 0.9);
+    setCaptured(img);
+    stopCamera();
+  };
 
-    // stop stream to save battery/resources
-    stopStream();
-  }, [stopStream]);
+  // 5️⃣ Confirm  
+  const confirm = () => {
+    if (captured) onCapture(captured);
+  };
 
-  const retake = useCallback(() => {
-    setCapturedImage(null);
-    setError(null);
-    setTimeout(() => startCamera(), 150);
-  }, [startCamera]);
-
-  const confirmCapture = useCallback(() => {
-    if (capturedImage) onCapture(capturedImage);
-  }, [capturedImage, onCapture]);
-
-  const flipCamera = useCallback(() => {
-    setFacingMode((p) => (p === "user" ? "environment" : "user"));
-    if (isStreaming) {
-      stopStream();
-      setTimeout(() => startCamera(), 150);
-    }
-  }, [isStreaming, startCamera, stopStream]);
-
-  useEffect(() => {
-    return () => {
-      stopStream();
-    };
-  }, [stopStream]);
-
-  const hasMediaSupport = typeof navigator !== "undefined" && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-
-  if (!hasMediaSupport) {
+  if (!ready)
     return (
-      <div className="p-6 bg-card rounded-2xl border border-border text-center">
-        <CameraOff className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-        <p className="text-muted-foreground">Camera is not supported on this device or browser.</p>
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        Initializing camera…
       </div>
     );
-  }
 
   return (
     <div className="space-y-4">
       <canvas ref={canvasRef} className="hidden" />
 
       {error && (
-        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-          {error}
+        <div className="p-3 bg-red-200 text-red-800 rounded-lg text-sm">{error}</div>
+      )}
+
+      {!stream && !captured && (
+        <div className="p-6 border rounded-xl text-center space-y-4">
+          <Camera className="w-10 h-10 mx-auto text-muted-foreground" />
+          <p className="text-muted-foreground">Start your camera to scan ingredients</p>
+
+          <Button onClick={startCamera} className="px-6">
+            <Camera className="w-4 h-4 mr-2" />
+            Start Camera
+          </Button>
         </div>
       )}
 
-      {/* Placeholder / Start */}
-      {!isStreaming && !capturedImage && (
-        <div className="flex flex-col items-center justify-center p-8 bg-accent/50 rounded-2xl border-2 border-dashed border-border min-h-[260px]">
-          <Camera className="w-14 h-14 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground text-center mb-4">Point your camera at your ingredients for detection</p>
-          <div className="flex gap-3">
-            <Button variant="hero" onClick={() => { setError(null); startCamera(); }}>
-              <Camera className="w-4 h-4 mr-2" /> Start Camera
-            </Button>
-            <Button variant="outline" onClick={() => setError("If you denied camera earlier, enable it from site settings.")}>
-              Help
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Live preview */}
-      {isStreaming && (
+      {stream && (
         <div className="relative">
-          <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-2xl bg-black aspect-video object-cover" />
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-            <Button variant="outline" size="icon" onClick={flipCamera} className="bg-background/80 backdrop-blur-sm">
-              <RefreshCw className="w-4 h-4" />
-            </Button>
+          <video
+            ref={videoRef}
+            playsInline
+            autoPlay
+            muted
+            className="w-full rounded-xl bg-black"
+          />
 
-            <Button variant="hero" onClick={captureFrame} className="px-6">
+          <div className="absolute bottom-4 w-full flex justify-center gap-3">
+            <Button onClick={takePhoto} className="px-6">
               <Camera className="w-4 h-4 mr-2" /> Capture
             </Button>
 
-            <Button variant="outline" onClick={stopStream} className="bg-background/80 backdrop-blur-sm">
-              <CameraOff className="w-4 h-4 mr-2" /> Stop Camera
+            <Button variant="outline" onClick={stopCamera}>
+              <CameraOff className="w-4 h-4" />
             </Button>
-          </div>
-
-          <div className="absolute top-4 left-4 right-4 pointer-events-none">
-            <p className="text-center text-sm text-white bg-black/50 backdrop-blur-sm rounded-lg px-3 py-1">
-              Ensure good lighting • Center ingredients in frame
-            </p>
           </div>
         </div>
       )}
 
-      {/* Captured preview */}
-      {capturedImage && (
+      {captured && (
         <div className="relative">
-          <img src={capturedImage} alt="Captured" className="w-full rounded-2xl aspect-video object-cover" />
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-            <Button variant="outline" onClick={retake} disabled={isProcessing} className="bg-background/80 backdrop-blur-sm">
+          <img src={captured} className="rounded-xl w-full" />
+
+          <div className="absolute bottom-4 w-full flex justify-center gap-3">
+            <Button variant="outline" onClick={() => setCaptured(null)}>
               <RefreshCw className="w-4 h-4 mr-2" /> Retake
             </Button>
 
-            <Button variant="hero" onClick={confirmCapture} disabled={isProcessing}>
+            <Button disabled={isProcessing} onClick={confirm}>
               {isProcessing ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing...
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing…
                 </>
               ) : (
                 <>
-                  <Check className="w-4 h-4 mr-2" /> Use This Frame
+                  <Check className="w-4 h-4 mr-2" /> Use Photo
                 </>
               )}
             </Button>
@@ -228,6 +149,4 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, isProce
       )}
     </div>
   );
-};
-
-export default CameraCapture;
+}

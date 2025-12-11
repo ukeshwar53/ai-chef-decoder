@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { FileUpload } from "@/components/shared/FileUpload";
-import { CameraCapture } from "@/components/shared/CameraCapture";
+import  CameraCapture  from "@/components/shared/CameraCapture";
 import { RecipeCard } from "@/components/shared/RecipeCard";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
