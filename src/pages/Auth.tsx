@@ -48,9 +48,9 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setIsSubmitting(true);
 
     try {
@@ -59,9 +59,10 @@ export default function Auth() {
         if (error) {
           toast({
             title: "Login failed",
-            description: error.message === "Invalid login credentials" 
-              ? "Invalid email or password. Please try again."
-              : error.message,
+            description:
+              error.message === "Invalid login credentials"
+                ? "Invalid email or password. Please try again."
+                : error.message,
             variant: "destructive",
           });
         } else {
@@ -93,6 +94,12 @@ export default function Auth() {
           });
         }
       }
+    } catch (error: any) {
+      toast({
+        title: isLogin ? "Login failed" : "Sign up failed",
+        description: error?.message || "Unexpected error. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
