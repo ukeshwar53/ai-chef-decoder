@@ -1,18 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-const MAX_INGREDIENTS = 20;
-const MAX_STRING_LENGTH = 100;
-const ALLOWED_CHARS = /^[a-zA-Z0-9\s,.\-'()\/]+$/;
-
-function sanitize(text: string): string {
-  return text.replace(/[<>"]/g, '').substring(0, MAX_STRING_LENGTH).trim();
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -20,32 +11,8 @@ serve(async (req) => {
   }
 
   try {
-    // Authentication check
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Authentication required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const { ingredients, cuisine, dishType } = await req.json();
-
+    
     if (!ingredients || !Array.isArray(ingredients) || ingredients.length < 2) {
       return new Response(
         JSON.stringify({ error: 'At least 2 ingredients are required' }),
@@ -53,41 +20,13 @@ serve(async (req) => {
       );
     }
 
-    if (ingredients.length > MAX_INGREDIENTS) {
-      return new Response(
-        JSON.stringify({ error: `Too many ingredients (max ${MAX_INGREDIENTS})` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const sanitizedIngredients: string[] = [];
-    for (const ing of ingredients) {
-      if (typeof ing !== 'string' || ing.trim().length === 0) {
-        return new Response(
-          JSON.stringify({ error: 'Each ingredient must be a non-empty string' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      const cleaned = sanitize(ing);
-      if (!ALLOWED_CHARS.test(cleaned)) {
-        return new Response(
-          JSON.stringify({ error: `Invalid characters in ingredient: ${cleaned.substring(0, 20)}` }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      sanitizedIngredients.push(cleaned);
-    }
-
-    const sanitizedCuisine = cuisine ? sanitize(String(cuisine)) : undefined;
-    const sanitizedDishType = dishType ? sanitize(String(dishType)) : undefined;
-
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY is not configured');
       throw new Error('AI service is not configured');
     }
 
-    console.log(`Analyzing ingredient chemistry for user ${claimsData.claims.sub}: ${sanitizedIngredients.join(', ')}`);
+    console.log('Analyzing ingredient chemistry for:', ingredients.join(', '));
 
     const systemPrompt = `You are CulinaryAI's culinary chemistry expert. Analyze the flavor compatibility between ingredients using molecular gastronomy principles and culinary traditions.
 
@@ -129,9 +68,9 @@ Score guidelines:
 
 Provide 2-4 suggested dishes and 1-3 adjustments.`;
 
-    const userPrompt = `Analyze the flavor chemistry and compatibility of these ingredients: ${sanitizedIngredients.join(', ')}
-${sanitizedCuisine ? `Cuisine context: ${sanitizedCuisine}` : ''}
-${sanitizedDishType ? `Intended dish type: ${sanitizedDishType}` : ''}
+    const userPrompt = `Analyze the flavor chemistry and compatibility of these ingredients: ${ingredients.join(', ')}
+${cuisine ? `Cuisine context: ${cuisine}` : ''}
+${dishType ? `Intended dish type: ${dishType}` : ''}
 
 Provide a detailed compatibility analysis.`;
 
@@ -152,12 +91,14 @@ Provide a detailed compatibility analysis.`;
 
     if (!response.ok) {
       if (response.status === 429) {
+        console.error('Rate limit exceeded');
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       if (response.status === 402) {
+        console.error('Payment required');
         return new Response(
           JSON.stringify({ error: 'AI credits exhausted. Please add credits to continue.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -175,12 +116,20 @@ Provide a detailed compatibility analysis.`;
       throw new Error('No response from AI');
     }
 
+    console.log('Chemistry analysis complete');
+
+    // Parse the JSON response
     let result;
     try {
       let jsonString = content.trim();
-      if (jsonString.startsWith('```json')) jsonString = jsonString.slice(7);
-      else if (jsonString.startsWith('```')) jsonString = jsonString.slice(3);
-      if (jsonString.endsWith('```')) jsonString = jsonString.slice(0, -3);
+      if (jsonString.startsWith('```json')) {
+        jsonString = jsonString.slice(7);
+      } else if (jsonString.startsWith('```')) {
+        jsonString = jsonString.slice(3);
+      }
+      if (jsonString.endsWith('```')) {
+        jsonString = jsonString.slice(0, -3);
+      }
       result = JSON.parse(jsonString.trim());
     } catch (parseError) {
       console.error('Failed to parse AI response:', content);
@@ -195,7 +144,7 @@ Provide a detailed compatibility analysis.`;
   } catch (error) {
     console.error('Error in ingredient-chemistry:', error);
     return new Response(
-      JSON.stringify({ error: 'Failed to analyze chemistry' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to analyze chemistry' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

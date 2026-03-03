@@ -47,63 +47,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const runWithNetworkRetry = async <T,>(operation: () => Promise<T>): Promise<T> => {
-    try {
-      return await operation();
-    } catch (error: any) {
-      const isNetworkError = error instanceof TypeError && /Failed to fetch/i.test(error.message);
-
-      if (!isNetworkError) throw error;
-
-      // Retry once for transient connectivity issues
-      return await operation();
-    }
-  };
-
   const signUp = async (email: string, password: string, displayName?: string) => {
     const redirectUrl = `${window.location.origin}/`;
-
-    try {
-      const { error } = await runWithNetworkRetry(() =>
-        supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: redirectUrl,
-            data: {
-              display_name: displayName,
-            },
-          },
-        })
-      );
-
-      return { error };
-    } catch (error: any) {
-      return {
-        error: new Error(
-          "Network error while signing up. Please check your connection and try again."
-        ),
-      };
-    }
+    
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl,
+        data: {
+          display_name: displayName
+        }
+      }
+    });
+    return { error };
   };
 
   const signIn = async (email: string, password: string) => {
-    try {
-      const { error } = await runWithNetworkRetry(() =>
-        supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-      );
-
-      return { error };
-    } catch (error: any) {
-      return {
-        error: new Error(
-          "Network error while signing in. Please check your connection and try again."
-        ),
-      };
-    }
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { error };
   };
 
   const signOut = async () => {

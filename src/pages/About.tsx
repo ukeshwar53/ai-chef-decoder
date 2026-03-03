@@ -102,7 +102,7 @@ const About = () => {
             <div className="relative">
               <div className="aspect-square rounded-3xl overflow-hidden shadow-elevated">
                 <img
-                  src="/robot.jpeg"
+                  src="public/robot.jpeg"
                   alt="Mission"
                   className="w-full h-full object-cover"
                 />

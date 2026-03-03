@@ -1,63 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB
-
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Authentication check
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Authentication required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const { imageBase64 } = await req.json();
-
-    if (!imageBase64 || typeof imageBase64 !== 'string') {
+    
+    if (!imageBase64) {
       return new Response(
         JSON.stringify({ error: 'Image data is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (imageBase64.length > MAX_IMAGE_SIZE) {
-      return new Response(
-        JSON.stringify({ error: 'Image too large (max 4MB)' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Validate it looks like base64 image data
-    if (!imageBase64.startsWith('data:image/') && !/^[A-Za-z0-9+/=]+$/.test(imageBase64.substring(0, 100))) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid image data format' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -68,7 +27,7 @@ serve(async (req) => {
       throw new Error('AI service is not configured');
     }
 
-    console.log(`Analyzing food image for user ${claimsData.claims.sub}`);
+    console.log('Analyzing food image...');
 
     const systemPrompt = `You are CulinaryAI's food recognition system. Analyze the food image and identify:
 1. The dish name (if recognizable)
@@ -95,10 +54,13 @@ Be accurate - only list ingredients you can clearly identify. Confidence should 
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
+          { 
+            role: 'user', 
             content: [
-              { type: 'text', text: 'Analyze this food image and identify the dish and ingredients.' },
+              {
+                type: 'text',
+                text: 'Analyze this food image and identify the dish and ingredients.'
+              },
               {
                 type: 'image_url',
                 image_url: {
@@ -113,12 +75,14 @@ Be accurate - only list ingredients you can clearly identify. Confidence should 
 
     if (!response.ok) {
       if (response.status === 429) {
+        console.error('Rate limit exceeded');
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       if (response.status === 402) {
+        console.error('Payment required');
         return new Response(
           JSON.stringify({ error: 'AI credits exhausted. Please add credits to continue.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -136,12 +100,20 @@ Be accurate - only list ingredients you can clearly identify. Confidence should 
       throw new Error('No response from AI');
     }
 
+    console.log('Image analysis complete');
+
+    // Parse the JSON response
     let result;
     try {
       let jsonString = content.trim();
-      if (jsonString.startsWith('```json')) jsonString = jsonString.slice(7);
-      else if (jsonString.startsWith('```')) jsonString = jsonString.slice(3);
-      if (jsonString.endsWith('```')) jsonString = jsonString.slice(0, -3);
+      if (jsonString.startsWith('```json')) {
+        jsonString = jsonString.slice(7);
+      } else if (jsonString.startsWith('```')) {
+        jsonString = jsonString.slice(3);
+      }
+      if (jsonString.endsWith('```')) {
+        jsonString = jsonString.slice(0, -3);
+      }
       result = JSON.parse(jsonString.trim());
     } catch (parseError) {
       console.error('Failed to parse AI response:', content);
@@ -156,7 +128,7 @@ Be accurate - only list ingredients you can clearly identify. Confidence should 
   } catch (error) {
     console.error('Error in scan-food:', error);
     return new Response(
-      JSON.stringify({ error: 'Failed to analyze image' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to analyze image' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
